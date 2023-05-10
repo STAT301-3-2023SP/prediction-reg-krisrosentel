@@ -28,7 +28,8 @@ psn_fit <- psn_workflow %>%
   tune_grid(reg_fold, grid = 1,
             control = control_grid(save_pred = TRUE, 
                                    save_workflow = TRUE,
-                                   parallel_over = "everything"))
+                                   parallel_over = "everything"),
+            metrics = metric_set(rmse, rsq, smape))
 
 # end parallel processing
 stopCluster(cl)

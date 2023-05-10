@@ -10,8 +10,10 @@ reg_train <- read_csv("data/train.csv")
 reg_test <- read_csv("data/test.csv")
 load("results/lm_cv.rda")
 load("results/psn_cv.rda")
+load("results/nb_cv.rda")
 load("results/elastic_lm_cv.rda")
 load("results/elastic_psn_cv.rda")
+load("results/gam_gaus_cv.rda")
 
 lm_fit %>% 
   collect_metrics()
@@ -19,10 +21,16 @@ lm_fit %>%
 psn_fit %>% 
   collect_metrics()
 
+nb_fit %>% 
+  collect_metrics()
+
 elastic_lm_fit %>% 
   show_best(metric = "rmse")
 
 elastic_psn_fit %>% 
+  show_best(metric = "rmse")
+
+gam_gaus_fit %>% 
   show_best(metric = "rmse")
 
 # finalize best model- elastic net, linear
@@ -41,12 +49,21 @@ elastic_psn_tuned_wf <- elastic_psn_fit %>%
 # fit
 elastic_psn_results <- fit(elastic_psn_tuned_wf, reg_train)
 
+# finalize best model- gam, gaussian
+gam_gaus_tuned_wf <- gam_gaus_fit %>%
+  extract_workflow() %>% 
+  finalize_workflow(select_best(gam_gaus_fit, metric = "rmse"))
+
+# fit
+gam_gaus_results <- fit(gam_gaus_tuned_wf, reg_train)
+
 # write function to restore bounds of response variable 
 restore_bounds <- function(x){ 
   x <- x %>% mutate(y = case_when(y < 1 ~ 1,
                                   y > 100 ~ 100,
                                   .default = y))
-  }
+}
+
 
 # calc predictions - elastic lm
 predictions2 <- predict(elastic_lm_results, new_data = reg_test) %>% 
@@ -72,6 +89,19 @@ predictions_bounded3 <- predict(elastic_psn_results, new_data = reg_test) %>%
   bind_cols(reg_test %>% select(id)) %>% 
   select(id, y)
 
+# calc predictions - gam
+predictions4 <- predict(gam_gaus_results, new_data = reg_test) %>% 
+  rename(y = .pred) %>% 
+  bind_cols(reg_test %>% select(id)) %>% 
+  select(id, y)
+
+predictions_bounded4 <- predict(gam_gaus_results, new_data = reg_test) %>% 
+  rename(y = .pred) %>% 
+  restore_bounds() %>% 
+  bind_cols(reg_test %>% select(id)) %>% 
+  select(id, y)
+
+
 # save
 write.csv(predictions2, "submissions/pred2_050723.csv", row.names = F)
 write.csv(predictions_bounded2, "submissions/pred_bnd2_050723.csv", row.names = F)
@@ -79,10 +109,13 @@ write.csv(predictions_bounded2, "submissions/pred_bnd2_050723.csv", row.names = 
 write.csv(predictions3, "submissions/pred3_050723.csv", row.names = F)
 write.csv(predictions_bounded3, "submissions/pred_bnd3_050723.csv", row.names = F)  
 
+write.csv(predictions4, "submissions/pred4_050923.csv", row.names = F)
+write.csv(predictions_bounded4, "submissions/pred_bnd4_050923.csv", row.names = F)  
+
 ########### Scratch from previous labs- save for later
-psn_fit %>% 
+gam_gaus_fit %>% 
   filter(id == "Repeat3" & id2 == "Fold5") %>% 
-  select(.metrics) %>% 
+  select(.notes) %>% 
   unlist()
 
 # load saved objects from setup and tuning

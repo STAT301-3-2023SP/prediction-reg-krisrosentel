@@ -20,7 +20,7 @@ theta <- theta.ml(y = reg_train$y, mu = psn_pred)
 # set up negbin model
 nb_model <- 
   linear_reg() %>% 
-  set_engine("glm", family = negative.binomial(theta = theta)) 
+  set_engine("glm", family = MASS::negative.binomial(theta)) 
 
 # nb workflow
 nb_workflow <- workflow() %>% 
@@ -40,7 +40,8 @@ nb_fit <- nb_workflow %>%
   tune_grid(reg_fold, grid = 1,
             control = control_grid(save_pred = TRUE, 
                                    save_workflow = TRUE,
-                                   parallel_over = "everything"))
+                                   parallel_over = "everything"),
+            metrics = metric_set(rmse, rsq, smape))
 
 # end parallel processing
 stopCluster(cl)

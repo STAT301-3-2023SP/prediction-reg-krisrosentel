@@ -20,17 +20,17 @@ theta <- theta.ml(y = reg_train$y, mu = elastic_psn_pred)
 # set up elastic net model
 elastic_nb_model <- linear_reg(mixture = tune(), 
                               penalty = tune()) %>% 
-  set_engine("glmnet", family = negative.binomial(theta = theta))
+  set_engine("glmnet", family = MASS::negative.binomial(theta))
 
 # elastic net parameters
 elastic_params <- extract_parameter_set_dials(elastic_nb_model)
-elastic_grid <- tibble(expand.grid(penalty = c(.01, .05, .1, .5, 1, 3, 8, 10),
+elastic_grid <- tibble(expand.grid(penalty = c(.05, .1, .5, 1, 5, 10, 20),
                                    mixture = c(0, .25, .5, .75, 1)))
 
 # elastic workflow
 elastic_nb_workflow <- workflow() %>% 
   add_model(elastic_nb_model) %>% 
-  add_recipe(recipe_interact)
+  add_recipe(recipe_main)
 
 # Set up parallel processing
 cl <- makePSOCKcluster(4)
@@ -45,7 +45,8 @@ elastic_nb_fit <- elastic_nb_workflow %>%
   tune_grid(reg_fold, grid = elastic_grid,
             control = control_grid(save_pred = TRUE, 
                                    save_workflow = TRUE,
-                                   parallel_over = "everything"))
+                                   parallel_over = "everything"),
+            metrics = metric_set(rmse, rsq, smape))
 
 # end parallel processing
 stopCluster(cl)

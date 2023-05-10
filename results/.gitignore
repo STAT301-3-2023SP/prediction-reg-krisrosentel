@@ -3,3 +3,5 @@ elastic_lm_cv.rda
 elastic_psn_cv.rda
 lm_cv.rda
 modeling_objs.rda
+gam_gaus_cv.rda
+nb_cv.rda

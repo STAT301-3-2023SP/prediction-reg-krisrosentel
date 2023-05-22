@@ -1,25 +1,25 @@
 # load libraries
 library(pacman)
-p_load(tidymodels, tidyverse, doParallel, tictoc, poissonreg)
+p_load(tidymodels, tidyverse, doParallel, tictoc)
 
 # load saved objects from setup
 load("results/modeling_objs.rda")
 
 # set up elastic net model
-elastic_psn_model <- poisson_reg(mixture = tune(), 
-                                 penalty = tune()) %>% 
+elastic_lm_model <- linear_reg(mixture = tune(), 
+                              penalty = tune()) %>% 
   set_engine("glmnet")
 
 # elastic net parameters
-elastic_params <- extract_parameter_set_dials(elastic_psn_model) %>% 
-  update(penalty = penalty(range = c(-2, -.25)),
+elastic_params <- extract_parameter_set_dials(elastic_lm_model) %>% 
+  update(penalty = penalty(range = c(-2.5, -.3)),
          mixture = mixture(range = c(0, 1)))
 elastic_grid <- grid_regular(elastic_params, levels = 5)
 
 # elastic workflow
-elastic_psn_workflow <- workflow() %>% 
-  add_model(elastic_psn_model) %>% 
-  add_recipe(recipe_main)
+elastic_lm_workflow <- workflow() %>% 
+  add_model(elastic_lm_model) %>% 
+  add_recipe(recipe_int)
 
 # Set up parallel processing
 cl <- makePSOCKcluster(4)
@@ -27,10 +27,10 @@ registerDoParallel(cl)
 
 # start clock
 tic.clearlog()
-tic("elastic net, poisson")
+tic("elastic net with interactions, linear")
 
-## fit elastic net poisson 
-elastic_psn_fit <- elastic_psn_workflow %>% 
+## fit elastic net lm
+elastic_lm_int_fit <- elastic_lm_workflow %>% 
   tune_grid(reg_fold, grid = elastic_grid,
             control = control_grid(save_pred = TRUE, 
                                    save_workflow = TRUE,
@@ -45,13 +45,12 @@ toc(log = TRUE)
 time_log <- tic.log(format = FALSE)
 
 # save run time
-elastic_psn_tictoc <- tibble(
+elastic_lm_int_tictoc <- tibble(
   model = time_log[[1]]$msg,
   #runtime = end time - start time
   runtime = time_log[[1]]$toc - time_log[[1]]$tic
 )
 
 # save
-save(elastic_psn_fit, elastic_psn_tictoc, 
-     file = "results/elastic_psn_cv.rda")
-
+save(elastic_lm_int_fit, elastic_lm_int_tictoc,  
+     file = "results/elastic_lm_int_cv.rda")

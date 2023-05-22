@@ -11,9 +11,10 @@ elastic_lm_model <- linear_reg(mixture = tune(),
   set_engine("glmnet")
 
 # elastic net parameters
-elastic_params <- extract_parameter_set_dials(elastic_lm_model)
-elastic_grid <- tibble(expand.grid(penalty = c(.05, .1, .5, 1, 5, 10, 20),
-                                   mixture = c(0, .25, .5, .75, 1)))
+elastic_params <- extract_parameter_set_dials(elastic_lm_model) %>% 
+  update(penalty = penalty(range = c(-2, -.25)),
+         mixture = mixture(range = c(0, 1)))
+elastic_grid <- grid_regular(elastic_params, levels = 5)
 
 # elastic workflow
 elastic_lm_workflow <- workflow() %>% 

@@ -15,7 +15,7 @@ gam_nb_model <- gen_additive_mod(
   mode = "regression",
   select_features = TRUE,
   adjust_deg_free = tune()) %>% 
-  set_engine("mgcv", family = nb())
+  set_engine("mgcv", family = nb(2.715))
 
 # gam parameters
 gam_params <- extract_parameter_set_dials(gam_nb_model)

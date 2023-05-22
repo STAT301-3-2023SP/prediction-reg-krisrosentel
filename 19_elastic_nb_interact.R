@@ -7,11 +7,11 @@ load("results/modeling_objs.rda")
 
 # estimate theta for neg bin using Poisson
 reg_train <- read_csv("data/train.csv")
-load("results/elastic_psn_cv.rda")
+load("results/elastic_psn_int_cv.rda")
 
-elastic_psn_results <- elastic_psn_fit %>% # fit Poisson model to train
+elastic_psn_results <- elastic_psn_int_fit %>% # fit Poisson model to train
   extract_workflow() %>% 
-  finalize_workflow(select_best(elastic_psn_fit, metric = "rmse")) %>% 
+  finalize_workflow(select_best(elastic_psn_int_fit, metric = "rmse")) %>% 
   fit(., reg_train)
 
 elastic_psn_pred <- predict(elastic_psn_results, new_data = reg_train)
@@ -24,14 +24,14 @@ elastic_nb_model <- linear_reg(mixture = tune(),
 
 # elastic net parameters
 elastic_params <- extract_parameter_set_dials(elastic_nb_model) %>% 
-  update(penalty = penalty(range = c(-2, -.25)),
+  update(penalty = penalty(range = c(-2.5, -.3)),
          mixture = mixture(range = c(0, 1)))
 elastic_grid <- grid_regular(elastic_params, levels = 5)
 
 # elastic workflow
 elastic_nb_workflow <- workflow() %>% 
   add_model(elastic_nb_model) %>% 
-  add_recipe(recipe_main)
+  add_recipe(recipe_int)
 
 # Set up parallel processing
 cl <- makePSOCKcluster(4)
@@ -39,10 +39,10 @@ registerDoParallel(cl)
 
 # start clock
 tic.clearlog()
-tic("elastic net, neg. bin.")
+tic("elastic net with interactions, neg. bin.")
 
 ## fit elastic net nb
-elastic_nb_fit <- elastic_nb_workflow %>% 
+elastic_nb_int_fit <- elastic_nb_workflow %>% 
   tune_grid(reg_fold, grid = elastic_grid,
             control = control_grid(save_pred = TRUE, 
                                    save_workflow = TRUE,
@@ -57,12 +57,12 @@ toc(log = TRUE)
 time_log <- tic.log(format = FALSE)
 
 # save run time
-elastic_nb_tictoc <- tibble(
+elastic_nb_int_tictoc <- tibble(
   model = time_log[[1]]$msg,
   #runtime = end time - start time
   runtime = time_log[[1]]$toc - time_log[[1]]$tic
 )
 
 # save
-save(elastic_nb_fit, elastic_nb_tictoc,  
-     file = "results/elastic_nb_cv.rda")
+save(elastic_nb_int_fit, elastic_nb_int_tictoc,  
+     file = "results/elastic_nb_int_cv.rda")

@@ -2,6 +2,9 @@
 library(pacman)
 p_load(tidymodels, tidyverse, doParallel, tictoc, poissonreg)
 
+# deal with package conflicts
+tidymodels_prefer()
+
 # load saved objects from setup
 load("results/modeling_objs.rda")
 
@@ -13,7 +16,7 @@ psn_model <-
 # poisson workflow
 psn_workflow <- workflow() %>% 
   add_model(psn_model) %>% 
-  add_recipe(recipe_main)
+  add_recipe(recipe_50)
 
 # Set up parallel processing
 cl <- makePSOCKcluster(4)
@@ -25,11 +28,11 @@ tic("poisson")
 
 ## fit poisson 
 psn_fit <- psn_workflow %>% 
-  tune_grid(reg_fold, grid = 1,
-            control = control_grid(save_pred = TRUE, 
-                                   save_workflow = TRUE,
-                                   parallel_over = "everything"),
-            metrics = metric_set(rmse, rsq, smape))
+  fit_resamples(resamples = reg_fold,
+                control = control_resamples(save_pred = T,
+                                            save_workflow = TRUE,
+                                            parallel_over = "everything"),
+                metrics = metric_set(rmse, rsq, smape))
 
 # end parallel processing
 stopCluster(cl)

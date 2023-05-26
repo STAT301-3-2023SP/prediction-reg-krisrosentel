@@ -1,27 +1,30 @@
 # load libraries
 library(pacman)
-p_load(tidymodels, tidyverse, doParallel, tictoc, earth)
+p_load(tidymodels, tidyverse, doParallel, tictoc, earth, baguette)
+
+# deal with package conflicts
+tidymodels_prefer()
 
 # load saved objects from setup
 load("results/modeling_objs.rda")
 
 # set up mars model
-mars_model <- mars(
+mars_model <- bag_mars(
   mode = "regression",
   num_terms = tune(),
   prod_degree = tune()) %>%
-  set_engine("earth")
+  set_engine("earth", times = 30)
 
 ## mars parameters
 mars_params <- extract_parameter_set_dials(mars_model) %>% 
-  update(num_terms = num_terms(c(5, 20)),
+  update(num_terms = num_terms(c(5, 62)),
          prod_degree = prod_degree(c(1, 3))) 
-mars_grid <- grid_regular(mars_params, levels = c(6, 3))
+mars_grid <- grid_regular(mars_params, levels = c(20, 3))
 
 # mars workflow
 mars_workflow <- workflow() %>% 
   add_model(mars_model) %>% 
-  add_recipe(recipe_main)
+  add_recipe(recipe_50)
 
 # Set up parallel processing
 cl <- makePSOCKcluster(4)

@@ -2,6 +2,9 @@
 library(pacman)
 p_load(tidymodels, tidyverse, doParallel, tictoc, ranger)
 
+# deal with package conflicts
+tidymodels_prefer()
+
 # load saved objects from setup
 load("results/modeling_objs.rda")
 
@@ -13,14 +16,14 @@ rf_model <- rand_forest(mode = "regression",
 
 ## rf parameters
 rf_params <- extract_parameter_set_dials(rf_model) %>% 
-  update(min_n = min_n(c(2, 8)),
-         mtry = mtry(c(5, 23))) 
-rf_grid <- grid_regular(rf_params, levels = c(4, 3))
+  update(min_n = min_n(c(2, 20)),
+         mtry = mtry(c(5, 50))) 
+rf_grid <- grid_regular(rf_params, levels = c(5, 5))
 
 # rf workflow
 rf_workflow <- workflow() %>% 
   add_model(rf_model) %>% 
-  add_recipe(recipe_main)
+  add_recipe(recipe_50)
 
 # Set up parallel processing
 cl <- makePSOCKcluster(4)

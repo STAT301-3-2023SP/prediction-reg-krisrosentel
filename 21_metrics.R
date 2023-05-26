@@ -12,9 +12,9 @@ reg_test <- read_csv("data/test.csv")
 load("results/lm_cv.rda")
 load("results/psn_cv.rda")
 load("results/nb_cv.rda")
-load("results/elastic_lm_cv.rda")
-load("results/elastic_psn_cv.rda")
-load("results/elastic_nb_cv.rda")
+load("results/elastic_lm_pca_cv.rda")
+load("results/elastic_psn_pca_cv.rda")
+load("results/elastic_nb_pca_cv.rda")
 load("results/knn_cv.rda")
 load("results/rf_cv.rda")
 load("results/bt_cv.rda")
@@ -27,8 +27,8 @@ load("results/gam_nb_cv.rda")
 load("results/elastic_lm_int_cv.rda")
 load("results/elastic_psn_int_cv.rda")
 load("results/elastic_nb_int_cv.rda")
-load("results/ensemble_preds.rda")
-load("results/gam_nb_modelres.rda")
+load("results/bart_cv.rda")
+load("results/ensemble_preds2.rda")
 
 lm_fit %>% 
   collect_metrics()
@@ -39,19 +39,19 @@ psn_fit %>%
 nb_fit %>% 
   collect_metrics()
 
-elastic_lm_fit %>% 
-  show_best(metric = "rmse")
+elastic_lm_pca_fit %>% 
+  autoplot(metric = "rmse")
 
 elastic_lm_fit %>% 
-
-elastic_psn_fit %>% 
+  
+  elastic_psn_fit %>% 
   show_best(metric = "rmse", 25) %>% 
   print(n = 25)
 
-elastic_psn_fit %>% 
-  autoplot()
+elastic_psn_pca_fit %>% 
+  show_best(metric = "rmse")
 
-elastic_nb_fit %>% 
+elastic_nb_pca_fit %>% 
   show_best(metric = "rmse")
 
 gam_gaus_fit %>% 
@@ -61,25 +61,25 @@ gam_nb_fit %>%
   show_best(metric = "rmse") 
 
 knn_fit %>% 
-  show_best(metric = "smape")
+  show_best(metric = "rmse")
 
 rf_fit %>% 
-  autoplot(metric = "rmse")
+  show_best(metric = "rmse")
 
 bt_fit %>% 
-  show_best(metric = "rmse")
+  show_best(metric = "rmse") 
 
 svm_poly_fit %>% 
   show_best(metric = "rmse")
 
 svm_rad_fit %>% 
-  autoplot(metric = "rmse")
+  show_best(metric = "rmse")
 
 svm_rad_fit %>% 
   autoplot(metric = "rmse")
 
 mlp_fit %>% 
-  autoplot(metric = "rmse")
+  show_best(metric = "rmse")
 
 mars_fit %>% 
   autoplot(metric = "rmse")
@@ -91,7 +91,18 @@ elastic_nb_int_fit %>%
   show_best(metric = "rmse")
 
 elastic_psn_int_fit %>% 
+  autoplot(metric = "rmse")
+
+bart_fit %>% 
   show_best(metric = "rmse")
+
+# finalize best model- bart
+bart_tuned_wf <- bart_fit %>%
+  extract_workflow() %>% 
+  finalize_workflow(select_best(bart_fit, metric = "rmse"))
+
+# fit
+bart_results <- fit(bart_tuned_wf, reg_train)
 
 # finalize best model- elastic net, linear
 elastic_lm_tuned_wf <- elastic_lm_fit %>%
@@ -173,13 +184,21 @@ svm_rad_tuned_wf <- svm_rad_fit %>%
 # fit
 svm_rad_results <- fit(svm_rad_tuned_wf, reg_train)
 
-# finalize best model- mars rad
+# finalize best model- mars
 mars_tuned_wf <- mars_fit %>%
   extract_workflow() %>% 
   finalize_workflow(select_best(mars_fit, metric = "rmse"))
 
 # fit
 mars_results <- fit(mars_tuned_wf, reg_train)
+
+# finalize best model- mlp
+mlp_tuned_wf <- mlp_fit %>%
+  extract_workflow() %>% 
+  finalize_workflow(select_best(mlp_fit, metric = "rmse"))
+
+# fit
+mlp_results <- fit(mlp_tuned_wf, reg_train)
 
 # write function to restore bounds of response variable 
 restore_bounds <- function(x){ 
@@ -286,17 +305,31 @@ predictions22 <- predict(svm_rad_results, new_data = reg_test) %>%
   bind_cols(reg_test %>% select(id)) %>% 
   select(id, y)
 
-predictions20 <- predict(mars_results, new_data = reg_test) %>% 
+predictions27 <- predict(mars_results, new_data = reg_test) %>% 
   rename(y = .pred) %>% 
+  restore_bounds() %>% 
   bind_cols(reg_test %>% select(id)) %>% 
   select(id, y)
 
-predictions23 <- predict(elastic_nb_int_results, new_data = reg_test) %>% 
+predictions26 <- predict(elastic_nb_int_results, new_data = reg_test) %>% 
   rename(y = .pred) %>% 
+  restore_bounds() %>% 
   bind_cols(reg_test %>% select(id)) %>% 
   select(id, y)
 
-predictions24 <- ensemble_preds %>% select(id, y)
+predictions30 <- ensemble_preds2 %>% select(id, y)
+
+predictions25 <- predict(mlp_results, new_data = reg_test) %>% 
+  rename(y = .pred) %>% 
+  restore_bounds() %>% 
+  bind_cols(reg_test %>% select(id)) %>% 
+  select(id, y)
+
+predictions28 <- predict(bart_results, new_data = reg_test) %>% 
+  rename(y = .pred) %>% 
+  restore_bounds() %>% 
+  bind_cols(reg_test %>% select(id)) %>% 
+  select(id, y)
 
 # save
 write.csv(predictions2, "submissions/pred2_050723.csv", row.names = F)
@@ -325,10 +358,11 @@ write.csv(predictions19, "submissions/pred19_051723.csv", row.names = F)
 
 write.csv(predictions23, "submissions/pred23_051823.csv", row.names = F)
 
-write.csv(predictions24, "submissions/pred_bnd24_052123.csv", row.names = F)
+write.csv(predictions26, "submissions/pred_bnd26_052323.csv", row.names = F)
+write.csv(predictions30, "submissions/pred_bnd30_052523.csv", row.names = F)
 
 ########### Scratch from previous labs- save for later
-gam_gaus_fit %>% 
+cens_spl_fit %>% 
   filter(id == "Repeat3" & id2 == "Fold5") %>% 
   select(.notes) %>% 
   unlist()

@@ -1,36 +1,16 @@
 # load libraries
 library(pacman)
 p_load(tidymodels, tidyverse, stacks, MASS, poissonreg, 
-       mgcv, kknn, ranger, xgboost, earth, nnet, kernlab)
+       mgcv, kknn, ranger, xgboost, earth, nnet, kernlab, baguette)
 
 # deal with package conflicts
 tidymodels_prefer()
 
-# Load more
-load("results/elastic_psn_cv.rda")
-
-# Create data stack
-reg_stack <- stacks() %>%
-  add_candidates(elastic_psn_fit) 
-
-# Remove to free up memory  
-rm(elastic_psn_fit, elastic_psn_tictoc)
-
-# Load more
-load("results/elastic_lm_int_cv.rda")
-
-# Add to data stack
-reg_stack <- reg_stack %>%
-  add_candidates(elastic_lm_int_fit) 
-
-# Remove to free up memory 
-rm(elastic_lm_int_fit, elastic_lm_int_tictoc) 
-
-# Load more
+# Load in
 load("results/elastic_psn_int_cv.rda")
 
-# Add to data stack
-reg_stack <- reg_stack %>%
+# Create stack
+reg_stack <- stacks() %>%
   add_candidates(elastic_psn_int_fit)
 
 # Remove to free up memory 
@@ -47,14 +27,14 @@ reg_stack <- reg_stack %>%
 rm(elastic_nb_int_fit, elastic_nb_int_tictoc)
 
 # Load more
-load("results/gam_gaus_cv.rda")
+load("results/elastic_nb_pca_cv.rda")
 
 # Add to data stack
 reg_stack <- reg_stack %>%
-  add_candidates(gam_gaus_fit) 
+  add_candidates(elastic_nb_pca_fit)
 
-# Remove to free up memory
-rm(gam_gaus_fit, gam_gaus_tictoc)
+# Remove to free up memory 
+rm(elastic_nb_pca_fit, elastic_nb_pca_tictoc)
 
 # Load more
 load("results/gam_nb_cv.rda")
@@ -77,14 +57,14 @@ reg_stack <- reg_stack %>%
 rm(svm_rad_fit, svm_rad_tictoc)
 
 # Load more
-load("results/bt_cv.rda")
+load("results/bart_cv.rda")
 
 # Add to data stack
 reg_stack <- reg_stack %>%
-  add_candidates(bt_fit) 
+  add_candidates(bart_fit) 
 
 # Remove to free up memory 
-rm(bt_fit, bt_tictoc)
+rm(bart_fit, bart_tictoc)
 
 # Load more
 load("results/mlp_cv.rda")
@@ -106,10 +86,24 @@ reg_stack <- reg_stack %>%
 # Remove to free up memory 
 rm(mars_fit, mars_tictoc)
 
+# write function to restore bounds of response variable 
+restore_bounds <- function(x){ 
+  x <- case_when(x < 1 ~ 1,
+                 x > 100 ~ 100,
+                 .default = x)
+  x
+}
+
+# fix bounds in predictions
+reg_stack <- reg_stack %>% 
+  mutate_all(restore_bounds)
+
+# view data stack
+reg_stack
+
 # Fit the stack 
 ## penalty values for blending (set penalty argument when blending)
-blend_penalty <- c(10^(-6:-1), 0.2, .3, .4, .5, .6, .7, .8, .9)
-
+blend_penalty <- c(10^(-6:-1), 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
 
 ## blend predictions using penalty defined above (tuning step, set seed)
 reg_blend <-
@@ -125,20 +119,16 @@ autoplot(reg_blend)
 autoplot(reg_blend, type = "weights")
 
 # merge stacking coefs
-stack_coef <- collect_parameters(reg_blend, "elastic_psn_fit") %>% 
-  full_join(collect_parameters(reg_blend, "elastic_lm_int_fit"), 
-            by = c("member", "coef")) %>% 
-  full_join(collect_parameters(reg_blend, "elastic_psn_int_fit"), 
-            by = c("member", "coef")) %>% 
+stack_coef2 <- collect_parameters(reg_blend, "elastic_psn_int_fit") %>% 
   full_join(collect_parameters(reg_blend, "elastic_nb_int_fit"), 
             by = c("member", "coef")) %>% 
-  full_join(collect_parameters(reg_blend, "gam_gaus_fit"), 
+  full_join(collect_parameters(reg_blend, "elastic_nb_pca_fit"), 
             by = c("member", "coef")) %>% 
   full_join(collect_parameters(reg_blend, "gam_nb_fit"), 
             by = c("member", "coef")) %>% 
   full_join(collect_parameters(reg_blend, "svm_rad_fit"), 
             by = c("member", "coef")) %>% 
-  full_join(collect_parameters(reg_blend, "bt_fit"), 
+  full_join(collect_parameters(reg_blend, "bart_fit"), 
             by = c("member", "coef")) %>% 
   full_join(collect_parameters(reg_blend, "mlp_fit"), 
             by = c("member", "coef")) %>% 
@@ -148,8 +138,5 @@ stack_coef <- collect_parameters(reg_blend, "elastic_psn_fit") %>%
   mutate(weight = coef / sum(coef))
   
 # save
-save(stack_coef,
-     file = "results/ensemble_wts.rda")
-save(reg_blend,
-     file = "results/ensemble_blend.rda")
-
+save(stack_coef2,
+     file = "results/ensemble2_wts.rda")

@@ -2,6 +2,9 @@
 library(pacman)
 p_load(tidymodels, tidyverse, doParallel, tictoc, kknn)
 
+# deal with package conflicts
+tidymodels_prefer()
+
 # load saved objects from setup
 load("results/modeling_objs.rda")
 
@@ -18,7 +21,7 @@ knn_grid <- grid_regular(knn_params, levels = 8)
 # knn workflow
 knn_workflow <- workflow() %>% 
   add_model(knn_model) %>% 
-  add_recipe(recipe_main)
+  add_recipe(recipe_50)
 
 # Set up parallel processing
 cl <- makePSOCKcluster(4)

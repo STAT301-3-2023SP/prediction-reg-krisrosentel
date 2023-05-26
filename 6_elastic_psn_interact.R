@@ -2,6 +2,9 @@
 library(pacman)
 p_load(tidymodels, tidyverse, doParallel, tictoc, poissonreg)
 
+# deal with package conflicts
+tidymodels_prefer()
+
 # load saved objects from setup
 load("results/modeling_objs.rda")
 
@@ -12,9 +15,9 @@ elastic_psn_model <- poisson_reg(mixture = tune(),
 
 # elastic net parameters
 elastic_params <- extract_parameter_set_dials(elastic_psn_model) %>% 
-  update(penalty = penalty(range = c(-2.5, -.3)),
-         mixture = mixture(range = c(0, 1)))
-elastic_grid <- grid_regular(elastic_params, levels = 5)
+  update(penalty = penalty(range = c(-2.5, -.32)),
+         mixture = mixture(range = c(0, .5)))
+elastic_grid <- grid_regular(elastic_params, levels = 6)
 
 # elastic workflow
 elastic_psn_workflow <- workflow() %>% 

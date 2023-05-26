@@ -9,12 +9,12 @@ tidymodels_prefer()
 reg_train <- read_csv("data/train.csv") 
 
 # plot y- looks to be count data and positively skewed. will want to run Poisson model and 
-# elastic net Poisson 
+# elastic net Poisson. Also neg binomial if overdispersed 
 reg_train %>% 
   ggplot(aes(x = y)) +
   geom_histogram()
 
-# run an initial random forest on subset of data to select 300 most important predictors 
+# run an initial random forest on subset of data to select most important predictors 
 ## create subset of data - 20% of data
 set.seed(212) # set seed
 reg_split <- initial_split(reg_train, prop = 0.2, strata = y)
@@ -36,10 +36,10 @@ recipe_screen <- recipe(y ~ ., data = reg_include) %>%
   step_normalize(all_predictors())  # center and scale
 
 ## prep and bake
-recipe_screen %>% 
-  prep() %>% 
-  bake(new_data = reg_include) %>% 
-  head(15) 
+# recipe_screen %>% 
+  # prep() %>% 
+  # bake(new_data = NULL) %>% 
+  # head(15) 
 
 ## set up rf model
 rf_screen <- rand_forest(mode = "regression") %>% 
@@ -63,7 +63,7 @@ best_pred <- screen_fit %>%
   unlist() %>% 
   unname()
 
-## Create list of 50 best predictors from initial rf - for gam
+## Create list of 50 best predictors from initial rf aftter dropping high corr
 best_pred50 <- screen_fit %>% 
   extract_fit_parsnip() %>% 
   vip::vi() %>% 
@@ -79,7 +79,7 @@ best_pred50 <- screen_fit %>%
   unlist() %>% 
   unname()
 
-# examine highly correlated predictors among best 50 (since no PCA for GAM), 
+# examine highly correlated predictors among best 50 
 # run, update selection to rm, and iterate until no very high correlation
 reg_train %>% 
   drop_na() %>% 
@@ -102,12 +102,12 @@ reg_train %>%
 skew_pred <- reg_train %>% 
   select(all_of(best_pred)) %>% 
   describe() %>% 
-  filter(skew > 3 | skew < -3) %>% 
+  filter(skew > 1 | skew < -1) %>% 
   select(vars, skew, min, max) %>% 
   arrange(desc(skew)) %>% 
   rownames()
 
-## list of highly skewed predictors for YeoJohnson for gam
+## list of highly skewed predictors for YeoJohnson 
 skew_pred50 <- reg_train %>% 
   select(all_of(best_pred50)) %>% 
   describe() %>% 
@@ -116,7 +116,7 @@ skew_pred50 <- reg_train %>%
   arrange(desc(skew)) %>% 
   rownames()
 
-## list of vars with any missingness
+## list of vars with any missingness for PCA
 miss_train <- reg_train %>% # missing in training
   select(all_of(best_pred)) %>% 
   skim() %>% 
@@ -125,7 +125,7 @@ miss_train <- reg_train %>% # missing in training
   unlist() %>% 
   unname()
 
-## list of vars with any missingness for gam
+## list of vars with any missingness for main
 miss_train50 <- reg_train %>% # missing in training
   select(all_of(best_pred50)) %>% 
   skim() %>% 
@@ -136,6 +136,7 @@ miss_train50 <- reg_train %>% # missing in training
 
 reg_test <- read_csv("data/test.csv") # load in test data
 
+## list of vars with any missingness for PCA in test
 miss_test <- reg_test %>% # missing in testing
   select(best_pred) %>% 
   skim() %>% 
@@ -150,7 +151,7 @@ miss_test %>% # vars w/ missing in test but not train
 miss_combo <- c(miss_train, miss_test) %>% # missing in either test or train
   unique()
 
-## list of vars with any missingness for gam
+## list of vars with any missingness for main in test
 miss_test50 <- reg_test %>% # missing in testing
   select(best_pred50) %>% 
   skim() %>% 
@@ -170,24 +171,7 @@ set.seed(280)
 reg_fold <- vfold_cv(reg_train, v = 5, repeats = 3)
 
 # set up main recipe
-recipe_main <- recipe(y ~ ., data = reg_train) %>%
-  step_rm(all_predictors(), -best_pred) %>% # remove all but the best 300 predictors
-  step_normalize(all_predictors()) %>% # normalize before knn imputation
-  step_impute_knn(miss_combo) %>% # impute using knn
-  step_YeoJohnson(skew_pred) %>% # transform highly skewed predictors
-  step_normalize(all_predictors()) %>% # normalize again after transformations and imputation
-  step_pca(all_predictors(), threshold = .9) %>% # conduct PCA since some vars are highly correlated
-  step_nzv(all_predictors(), unique_cut = 1) %>% # remove predictors with near zero var 
-  step_normalize(all_predictors()) # normalize again after conducting PCA 
-
-# prep and bake
-recipe_main %>% 
-  prep() %>% 
-  bake(new_data = NULL) %>% 
-  head(15) 
-
-# set up gam recipe
-recipe_gam <- recipe(y ~ ., data = reg_train) %>% 
+recipe_50 <- recipe(y ~ ., data = reg_train) %>% 
   step_rm(all_predictors(), -best_pred50) %>% # recipe
   step_normalize(all_predictors()) %>% # normalize before knn imputation
   step_impute_knn(miss_combo50) %>% # impute using knn
@@ -195,13 +179,13 @@ recipe_gam <- recipe(y ~ ., data = reg_train) %>%
   step_normalize(all_predictors()) # normalize again after transformations and imputation
 
 # prep and bake
-recipe_gam %>% 
-  prep() %>% 
-  bake(new_data = NULL) %>% 
-  head(15)  
+# recipe_50 %>% 
+  # prep() %>% 
+  # bake(new_data = NULL) %>% 
+  # head(15)  
 
 # set up interaction recipe
-recipe_int <- recipe_gam %>% 
+recipe_int <- recipe_50 %>% 
   step_interact(~ x631:x702 + x604:x702 + x073:x702 + x105:x702 + x105:x114 +
                   x114:x146 + x026:x096 + x307:x631 + x661:x702 + x114:x631 + x073:x704 +
                   x105:x253 + x589:x664 + x543:x589 + x073:x105 + x253:x680 + x307:x416 +
@@ -213,12 +197,37 @@ recipe_int <- recipe_gam %>%
                   x589:x704 + x026:x661 + x105:x364)
 
 # prep and bake
-recipe_int %>% 
-  prep() %>% 
-  bake(new_data = NULL) %>% 
-  head(15)  
+# recipe_int %>% 
+  # prep() %>% 
+  # bake(new_data = NULL) %>% 
+  # head(15)  
+
+# set up PCA recipe
+recipe_pca <- recipe(y ~ ., data = reg_train) %>%
+  step_rm(all_predictors(), -best_pred) %>% # remove all but the best 300 predictors
+  step_YeoJohnson(skew_pred) %>% # transform predictors before impute and PCA
+  step_normalize(all_predictors()) %>% # normalize before knn imputation
+  step_impute_knn(miss_combo) %>% # impute using knn
+  step_pca(all_predictors(), -best_pred50, num_comp = 80) %>% # conduct PCA since some vars are highly correlated
+  step_interact(~ x631:x702 + x604:x702 + x073:x702 + x105:x702 + x105:x114 + # add interactions
+                  x114:x146 + x026:x096 + x307:x631 + x661:x702 + x114:x631 + x073:x704 +
+                  x105:x253 + x589:x664 + x543:x589 + x073:x105 + x253:x680 + x307:x416 +
+                  x026:x664 + x092:x636 + x425:x685 + x716:x721 + x653:x680 + x135:x307 +
+                  x653:x721 + x135:x661 + x093:x416 + x307:x447 + x096:x135 + x105:x653 +
+                  x604:x664 + x307:x427 + x105:x307 + x096:x457 + x685:x704 + x127:x693 +
+                  x662:x749 + x093:x631 + x073:x146 + x080:x696 + x265:x661 + x514:x696 +
+                  x111:x416 + x105:x111 + x114:x253 + x092:x274 + x135:x416 + x127:x653 +
+                  x589:x704 + x026:x661 + x105:x364) %>% 
+  step_nzv(all_predictors(), unique_cut = 1) %>% # remove predictors with near zero var 
+  step_normalize(all_predictors()) # normalize again after PCA and transformations
+
+# prep and bake
+#recipe_pca %>% 
+#  prep() %>% 
+#  bake(new_data = NULL) %>% 
+#  head(15) 
   
 # save needed objects
 save(best_pred, best_pred50, miss_combo, miss_combo50, skew_pred, 
-     skew_pred50, recipe_main, recipe_gam, recipe_int, reg_fold,
+     skew_pred50, recipe_pca, recipe_50, recipe_int, reg_fold,
      file = "results/modeling_objs.rda")

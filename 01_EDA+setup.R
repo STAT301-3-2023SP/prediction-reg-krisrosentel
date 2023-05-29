@@ -9,7 +9,7 @@ tidymodels_prefer()
 reg_train <- read_csv("data/train.csv") 
 
 # plot y- looks to be count data and positively skewed. will want to run Poisson model and 
-# elastic net Poisson. Also neg binomial if overdispersed 
+# elastic net Poisson. Also neg binomial since prob overdispersed 
 reg_train %>% 
   ggplot(aes(x = y)) +
   geom_histogram()
@@ -98,7 +98,7 @@ reg_train %>%
   unique()
 
 # Create lists of variables for recipe steps
-## list of highly skewed predictors for  YeoJohnson
+## list of highly skewed predictors for  YeoJohnson for PCA
 skew_pred <- reg_train %>% 
   select(all_of(best_pred)) %>% 
   describe() %>% 
@@ -184,7 +184,7 @@ recipe_50 <- recipe(y ~ ., data = reg_train) %>%
   # bake(new_data = NULL) %>% 
   # head(15)  
 
-# set up interaction recipe
+# set up interaction recipe - best 50 interactions based on LASSO
 recipe_int <- recipe_50 %>% 
   step_interact(~ x631:x702 + x604:x702 + x073:x702 + x105:x702 + x105:x114 +
                   x114:x146 + x026:x096 + x307:x631 + x661:x702 + x114:x631 + x073:x704 +

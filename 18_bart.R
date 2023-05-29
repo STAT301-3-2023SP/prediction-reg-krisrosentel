@@ -39,6 +39,7 @@ tic.clearlog()
 tic("bart")
 
 ## fit bart
+set.seed(41) # set seed 
 bart_fit <- bart_workflow %>% 
   tune_grid(reg_fold, grid = bart_grid,
             control = control_grid(save_pred = TRUE, 

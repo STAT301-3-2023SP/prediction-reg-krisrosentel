@@ -35,6 +35,7 @@ tic.clearlog()
 tic("mars")
 
 ## fit mars
+set.seed(262) # set seed 
 mars_fit <- mars_workflow %>% 
   tune_grid(reg_fold, grid = mars_grid,
             control = control_grid(save_pred = TRUE, 

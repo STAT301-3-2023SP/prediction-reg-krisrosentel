@@ -35,6 +35,7 @@ tic.clearlog()
 tic("mlp")
 
 ## fit mlp
+set.seed(114) # set seed 
 mlp_fit <- mlp_workflow %>% 
   tune_grid(reg_fold, grid = mlp_grid,
             control = control_grid(save_pred = TRUE, 

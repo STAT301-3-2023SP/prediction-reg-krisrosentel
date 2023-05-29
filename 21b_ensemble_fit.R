@@ -5,6 +5,7 @@ p_load(tidymodels, tidyverse, stacks, MASS, poissonreg,
 
 # deal with package conflicts
 tidymodels_prefer()
+set.seed(14) # set seed 
 
 # Due to memory issues, fit members doesn't work so we need to fit each member 
 # individually and then combine preds using the weights

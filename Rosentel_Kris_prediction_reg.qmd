@@ -1,0 +1,96 @@
+---
+title: "Regression Prediction Problem"
+subtitle: "Data Science 3 with R (STAT 301-3)"
+author: "Kris Rosentel"
+
+format:
+  html:
+    toc: true
+    embed-resources: true
+    code-fold: show
+    link-external-newwindow: true
+    
+execute:
+  warning: false
+
+from: markdown+emoji  
+---
+
+## Github Repo Link
+
+::: {.callout-note icon="false"}
+## Github Link for Replication
+
+[https://github.com/STAT301-3-2023SP/prediction-reg-krisrosentel.git](https://github.com/STAT301-3-2023SP/prediction-reg-krisrosentel.git)
+
+:::
+
+## Summary
+
+The goal of this prediction problem was to build a predictive model that achieves an RMSE under 8.75 for a masked financial dataset . My best model was an ensemble that included elastic net, SVM, MLP, and MARS models and it achieved an RMSE of 8.65 when applied to the Kaggle test data. In this memo, I describe the process of feature engineering, model tuning, and constructing the ensemble.
+
+## Feature Engineering, Recipes, and Post-Processing
+
+**Variable selection:** To select possible variables to include in the model, I conducted a random forest with all predictors for a random subset of 20% of the observations. I then computed the variable importance metric and generated two lists. The first list included 50 of the best predictors. I iteratively removed predictors that had a high correlation (\>.9) with other predictors and replaced them with the next best predictors from the list until I had 50 variables with no correlation above the .9 level. The second list included the 300 best predictors. These lists were used in different model recipes.
+
+**Recipes:** I created three recipes, which are described below: 
+
+- The first recipe included the 50 best predictors. I imputed missing variables using KNN (all had less than 20% missing), used a YeoJohnson transformation for all highly skewed predictors, and normalized all predictors. 
+
+- The second recipe built on the first and added 50 two-way interactions between select variables. Interactions were selected by first running a LASSO with all possible interactions and retaining those with non-zero coefficients. 
+
+- The third recipe included similar steps to Recipe 2, including adding the 50 selected interactions. However, this model added an additional 250 predictors, which were included in a PCA that reduced them into 80 components. The original 50 predictors were retained in the model and not included in the PCA.
+
+**Post-processing step:** According to the data documentation on Kaggle, the outcome is a percentage and is bounded between 0 and 100. However, I noticed that some models were producing predictions outside the possible range. Since post-processing steps are still in development within Tidymodels and have not yet been released, I wrote a post-processing function that reassigned all below range predictions to the minimum and all above range predictions to the maximum.
+
+## Model Tuning
+
+I fit and tuned 19 models using the training data. Since, the outcome variable appeared to be a count that was highly positively skewed, I decided to fit models based on the Poisson and Negative Binomial distributions in addition to the Gaussian distribution. For negative binomial models, I estimated theta using the results of the best Poisson model. I tuned the models using cross validation with 5 folds and 3 repeats to find the best values of relevant hyper-parameters. The table below lists each model, the recipe used, and the computation time to tune.
+
+```{r}
+#| echo: false
+library(pacman)
+p_load(tidyverse, kableExtra)
+
+load("results/memo_objs.rda") # load
+
+models_table %>% 
+    kable(caption = "Tuned Models: Recipes and Run Times", align = "lcc") %>% 
+  kable_styling(font_size = 12)
+```
+
+## Ensembles
+
+I ultimately fit two ensemble models using the models above. For the first ensemble, the post-processing step was applied only at the very end to the ensemble predictions. For the second ensemble, the post-processing step was applied to the stack of candidate models before tuning the ensemble and then to the predictions of each member before computing the ensemble prediction. Ultimately, applying this step prior to tuning and blending yielded better results.
+
+## Runner-Up Model
+
+The second best model was an ensemble in which the post-processing step was applied at the very end. This model achieved an RMSE of 8.87. The model had 290 candidate members and a penalty term of .9. The final model included 10 members, including 6 negative binomial elastic net models, 1 bagged MLP model, 2 bagged MARS models, and 1 SVM model with a radial basis function. The table and plot below describe the ensemble model, providing the stacking coefficients and the tuned hyper-parameters for the member models.
+
+```{r}
+#| echo: false
+#| fig-width: 9
+
+ens_table1 %>% 
+  kable(caption = "Member Model Coefficients and Parameters", align = "lccccccccc") %>% 
+  kable_styling(font_size = 12) %>% 
+  column_spec(c(1, 10), bold = T) 
+
+ens_plot1
+```
+
+## Best Model
+
+The best model was an ensemble in which the post-processing step was applied to each member before tuning and blending. This model achieved an RMSE of 8.65. The model had 290 candidate members and a penalty term of .2. The final model included 7 members, including 3 negative binomial elastic net models, 1 bagged MLP model, 2 bagged MARS models, and 1 SVM model with a radial basis function. The table and plot below describe the ensemble model, providing the stacking coefficients and the tuned hyper-parameters for the member models.
+
+```{r}
+#| echo: false
+#| fig-width: 9
+
+ens_table2 %>% 
+  kable(caption = "Member Model Coefficients and Parameters", align = "lccccccccc") %>% 
+  kable_styling(font_size = 12) %>% 
+  column_spec(c(1, 10), bold = T)  
+
+ens_plot2
+```

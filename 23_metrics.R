@@ -217,6 +217,7 @@ load("results/ensemble2_wts.rda") # load in
 ens_table2 <- stack_coef2 %>% 
   mutate(Penalty = case_when(!is.na(penalty.y) ~ as.character(round(penalty.y, 3)),
                              !is.na(penalty.x.x) ~ as.character(round(penalty.x.x, 3)),
+                             !is.na(penalty.y.y) ~ as.character(round(penalty.y.y, 3)),
                              .default = "-"),
          Mixture = case_when(!is.na(mixture.y) ~ as.character(round(mixture.y, 3)),
                              !is.na(mixture) ~ as.character(round(mixture, 3)),

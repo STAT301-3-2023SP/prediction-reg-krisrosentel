@@ -2828,12 +2828,12 @@ Github Link for Replication
 </section>
 <section id="feature-engineering-recipes-and-post-processing" class="level2">
 <h2 class="anchored" data-anchor-id="feature-engineering-recipes-and-post-processing">Feature Engineering, Recipes, and Post-Processing</h2>
-<p><strong>Variable selection:</strong> To select possible variables to include in the model, I conducted a random forest with all predictors for a random subset of 20% of the observations. I then computed the variable importance metric and generated two lists. The first list included 50 of the best predictors. I iteratively removed predictors that had a high correlation (&gt;.9) with other predictors and replaced them with the next best predictors from the list until I had 50 variables with no correlation above the .9 level. The second list included the 300 best predictors. These lists were used in different model recipes.</p>
+<p><strong>Variable selection:</strong> To select possible variables to include in the model, I conducted a random forest with all predictors for a random subset of 20% of the training observations. I then computed the variable importance metric and generated two lists. The first list included 50 of the best predictors. I iteratively removed predictors that had a high correlation (&gt;.9) with other predictors and replaced them with the next best predictors from the list until I had 50 variables with no correlation above the .9 level. The second list included the 300 best predictors. These lists were used in different model recipes.</p>
 <p><strong>Recipes:</strong> I created three recipes, which are described below:</p>
 <ul>
-<li><p>The first recipe included the 50 best predictors. I imputed missing variables using KNN (all had less than 20% missing), used a YeoJohnson transformation for all highly skewed predictors, and normalized all predictors.</p></li>
-<li><p>The second recipe built on the first and added 50 two-way interactions between select variables. Interactions were selected by first running a LASSO with all possible interactions and retaining those with non-zero coefficients.</p></li>
-<li><p>The third recipe included similar steps to Recipe 2, including adding the 50 selected interactions. However, this model added an additional 250 predictors, which were included in a PCA that reduced them into 80 components. The original 50 predictors were retained in the model and not included in the PCA.</p></li>
+<li><p><em>Recipe 1:</em> The first recipe included the 50 best predictors. I imputed missing variables using KNN (all had less than 20% missing), used a YeoJohnson transformation for all highly skewed predictors, and normalized all predictors.</p></li>
+<li><p><em>Recipe 2:</em> The second recipe built on the first and added 50 two-way interactions between select variables. Interactions were selected by first running a LASSO with all possible interactions and retaining those with non-zero coefficients.</p></li>
+<li><p><em>Recipe 3:</em> The third recipe included similar steps to Recipe 2. However, this model added an additional 250 predictors, which were included in a PCA that reduced them into 80 components. The original 50 predictors and their corresponding interactions were retained in the model as well, but were not included in the PCA.</p></li>
 </ul>
 <p><strong>Post-processing step:</strong> According to the data documentation on Kaggle, the outcome is a percentage and is bounded between 0 and 100. However, I noticed that some models were producing predictions outside the possible range. Since post-processing steps are still in development within Tidymodels and have not yet been released, I wrote a post-processing function that reassigned all below range predictions to the minimum and all above range predictions to the maximum.</p>
 </section>
@@ -3183,7 +3183,7 @@ Github Link for Replication
   </tr>
   <tr>
    <td style="text-align:left;font-weight: bold;"> MLP, Bagged </td>
-   <td style="text-align:center;"> - </td>
+   <td style="text-align:center;"> 17.783 </td>
    <td style="text-align:center;"> - </td>
    <td style="text-align:center;"> - </td>
    <td style="text-align:center;"> - </td>

@@ -1,3 +1,6 @@
+# For this ensemble, post-processing is applied to candidates and members prior to
+# tuning and blending
+
 # load libraries
 library(pacman)
 p_load(tidymodels, tidyverse, stacks, MASS, poissonreg, 

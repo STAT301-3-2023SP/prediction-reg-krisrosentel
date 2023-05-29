@@ -1,3 +1,5 @@
+# For this ensemble, post-processing is applied only to the ensemble preds after blending
+
 # load libraries
 library(pacman)
 p_load(tidymodels, tidyverse, stacks, MASS, poissonreg, 
